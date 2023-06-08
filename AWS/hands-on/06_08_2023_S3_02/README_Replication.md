@@ -33,7 +33,7 @@ At the end of the this hands-on training, students will be able to;
 ## Part 1 - Creating S3 Bucket for Lifecycle Management and setting Lifecycle Management
 
 
-- Create a new bucket named `pet.clarusway.lifecycle` with following properties. Bucket name has to be unique.
+- Create a new bucket named `pet.clarusway.lifecycle` with following properties.
 
 ```text
 Allow all public access   : UNCHECKED(PUBLIC) and Acknowledge the warning. 
@@ -75,7 +75,6 @@ Object creation:
 ```text
 3. Expiration
 Click the current version
-Show 365+30=395 (determined 30 days in former page)
 ```
 
 ```text
@@ -101,7 +100,7 @@ Tagging                     : 0 Tags
 Default encryption          : Disabled
 Object lock                 : Disabled
 
-PS: Please, do not forget to select "US East (N.Virginia)" as Region. Because we will use Cross Region Replica.
+PS: Please, do not forget to select "US East (N.Virginia)" as Region
 ```
 
 - Click the S3 bucket `source.replica.clarusway` and upload following files.
@@ -376,7 +375,7 @@ Review and click save
     - Storage class Standart-IA
     - Tags
         Key     : Name
-        Value   : cat
+        Value   : Cat
     and click save button
 3. Review and upload
 ```
