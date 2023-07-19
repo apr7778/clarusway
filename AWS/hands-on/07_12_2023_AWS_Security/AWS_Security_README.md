@@ -60,7 +60,7 @@ Tag:
 - Click on 'Launch Instances'
 
 ```text
-- Amazon Machine Image (AMI):   Amazon Linux 2 AMI (HVM), SSD Volume Type
+- Amazon Machine Image (AMI):   Amazon Linux 2023 AMI (HVM), SSD Volume Type
 - Instance Type:                t2.micro
 - Network:                      Select your default VPC
 - Subnet:                       Select a public subnet
@@ -395,7 +395,7 @@ Rate limit:         100 (this means max of 100 requests in 5 minutes)
 - Click on 'Launch Instances'
 
 ```text
-- Amazon Machine Image (AMI):   Amazon Linux 2 AMI (HVM), SSD Volume Type
+- Amazon Machine Image (AMI):   Amazon Linux 2023 AMI (HVM), SSD Volume Type
 - Instance Type:                t2.micro
 - Network:                      Select your default VPC
 - Subnet:                       Select a public subnet
@@ -403,7 +403,7 @@ Rate limit:         100 (this means max of 100 requests in 5 minutes)
 - Storage:                      select the default (Volume 1 (AMI Root) (8 GiB, EBS, General purpose SSD (gp2)))
 - Tags:
     Key:                        Name
-    Value:                      Testing server
+    Value:                      WebAttack
 - Security Group:               Select the security group created above named ALB-EC2-SG
 ```
 - Launch the EC2 instance with your key-pair

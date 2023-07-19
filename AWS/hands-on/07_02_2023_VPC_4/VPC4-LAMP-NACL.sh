@@ -3,8 +3,6 @@
 # 1.Create Sec.Groups:
 
    Wordpress-BastionHost-SG: In bound : "SSH 22, HTTP 80,   > anywhere(0:/00000)"
-   MariaDB-SG: In bound :"Mysql 3306, SSH 22  > anywhere (0:/00000)"
-   NAT-SG: In bound : "HTTP, HTTPS, SSH 22  > anywhere (0:/00000)" # No need for NAT-SG if you use NAT Gateway.
 
 # 2.Create EC2 that is installed LAMP with user data seen below for "Wordpress app in Public Subnet 1b"
 
@@ -31,7 +29,12 @@ find /var/www -type d -exec sudo chmod 2775 {} \;
 find /var/www -type f -exec sudo chmod 0664 {} \;
 systemctl restart httpd
 
-# 3.Create MariaDB ec2 instance in Private Subnet 1b
+
+# 3.Create Sec Group for MariaDB
+
+   MariaDB-SG: In bound :"Mysql 3306, SSH 22  > "Wordpress-BastionHost-SG""
+
+# 4.Create MariaDB ec2 instance in Private Subnet 1b
 
    VPC: "clarus-vpc-a"
    Subnet: "clarus-az1b-private-subnet"
@@ -46,20 +49,8 @@ systemctl start mariadb
 systemctl enable mariadb
 
 
-# 4. Control the instance status.
-
-# 5. To establish a more secure connection between the Wordpress instance and the DB instance, configure  
-# the DB instance security group inbound rule to ensure it only permits Wordpress instance security group to access.
-
-Rule: Mysql 3306, SSH 22  >>>>>> "anywhere (0:/00000)"
-
-							        V
- 							        V
- 							        V
- 							 
-Rule: Mysql 3306, SSH 22  >>>>>> "Wordpress-BastionHost-SG"
-
-# 6. To connect to private instance first we need to connect to the Wordpress instance (Bastion Host).
+# 6. To connect to private instance first we need to connect from a public instance.  Let's try the Wordpress Instance.
+# This is acting like a "bastion host" for now.
 # You can copy/transfer your .pem file to the Wordpress instance.
 
 - connect to Wordpress instance
@@ -98,68 +89,74 @@ sudo systemctl status mariadb
 sudo dnf update -y
 sudo dnf install mariadb105-server -y
 
-	
-# 12. Create NAT instance in "Public Subnet 1a" (Other public subnets will also work).
+# 12. Create Sec Group for NAT Instance
+
+   NAT-SG: In bound : "HTTP, HTTPS, SSH 22  > anywhere (0:/00000)" 
+----> Warning!!! To be able to upload/update packages, http/https must be allowed in NAT Instance security group. 
+
+# 13. Create NAT instance in "Public Subnet 1b" (Other public subnets will also work).
 # (You can also create a NAT Gateway for outbound connectivity)
 
     AMI: "NAT"
     VPC: "clarus-vpc-a"
-    Subnet: "clarus-az1a-public-subnet"
+    Subnet: "clarus-az1b-public-subnet"
     Sec Group: "NAT-SG"
 
-# 13. Edit "clarus-private-rt" route table:
+# 14. Modify Sec Group for DB Instance
+
+  Add Rule Inbound: "SSH 22 > NAT-SG"
+
+# 15. Edit "clarus-private-rt" route table:
 
 Destination                 Target
 10.7.0.0/16    >>>>>>       local
 0.0.0.0/0      >>>>>>       Instance >> NAT instance # (Select NAT Gateway if you use NAT Gateway)
 
-# 14. Select Nat instance, click Networking from the Actions menu and then go to Change Source/Destination Check.
+# 16. Select Nat instance, click Networking from the Actions menu and then go to Change Source/Destination Check.
 
 Check "Stop" option from the pane.
 
-# 15. Install mariadb server to "DB instance".
+# 17. Install mariadb server to "DB instance".
 
 sudo dnf update -y
 sudo dnf install mariadb105-server -y
 sudo systemctl start mariadb
 sudo systemctl enable mariadb
-    
-----> Warning!!! To be able to upload/update packages, http/https must be allowed in NAT Instance security group. 
 
-# 16. Setup secure installation of MariaDB.
+# 18. Setup secure installation of MariaDB.
 sudo mysql_secure_installation # Set root pwd: "root1234", and "y" to all questions.
 
-# 17. Connect mysql terminal with password (pwd: "root1234").
+# 19. Connect mysql terminal with password (pwd: "root1234").
 mysql -u root -p
 
-# 18. Show databases.
+# 20. Show databases.
 SHOW DATABASES;
 
-# 19. Create new database named "clarusdb".
+# 21. Create new database named "clarusdb".
 CREATE DATABASE clarusdb;
 
-# 20. Create a user named "admin".
+# 22. Create a user named "admin".
 CREATE USER admin IDENTIFIED BY '123456789';
 
-# 21. Grant permissions to the user "admin" for database "clarusdb".
+# 23. Grant permissions to the user "admin" for database "clarusdb".
 GRANT ALL ON clarusdb.* TO admin IDENTIFIED BY '123456789' WITH GRANT OPTION;  
 
-# 22. Update privileges.
+# 24. Update privileges.
 FLUSH PRIVILEGES;
 
-# 23. Select mysql.
+# 25. Select mysql.
 USE mysql;
 
-# 24. List the users defined.
+# 26. List the users defined.
 SELECT Host, User, Password FROM user;
 
-# 25. Close mysql cli.
+# 27. Close mysql cli.
 EXIT;
 
-# 26. Return back to "Wordpress Instance" to configure Word press database settings.
+# 28. Return back to "Wordpress Instance" to configure Word press database settings.
 cd /var/www/html/
 
-# 27. Change the config file for database association and restart httpd (You can use your favorite editor).
+# 29. Change the config file for database association and restart httpd (You can use your favorite editor).
 sudo vi wp-config.php
 
      define( 'DB_NAME', 'clarusdb' );
@@ -174,7 +171,7 @@ Esc :wq ---> Enter
 
 sudo systemctl restart httpd
 
-# 28. Check the browser using the WordPress instance Public Ip.
+# 30. Check the browser using the WordPress instance Public Ip.
 # You will see the home page of Wordpress. Enter pasword,user name etc... Introduce WordPress.
 
 ---------------------------------------------------------------------------------------
