@@ -17,7 +17,7 @@ The Clarusway Blog Page Application aims to deploy blog application as a web app
 
     ## Subnets
     - Create Subnets
-        - Create a public subnet named `aws-capstone-public-subnet-1A` under the vpc aws-capstone-vpc in AZ us-east-1a with 10.90.10.0/24
+        - Create a public subnet named `aws-capstone-public-subnet-1a` under the vpc aws-capstone-vpc in AZ us-east-1a with 10.90.10.0/24
         - Create a private subnet named `aws-capstone-private-subnet-1a` under the vpc aws-capstone-vpc in AZ us-east-1a with 10.90.11.0/24
         - Create a public subnet named `aws-capstone-public-subnet-1b` under the vpc aws-capstone-vpc in AZ us-east-1b with 10.90.20.0/24
         - Create a private subnet named `aws-capstone-private-subnet-1b` under the vpc aws-capstone-vpc in AZ us-east-1b with 10.90.21.0/24
@@ -172,7 +172,7 @@ save changes
 To launch NAT instance, go to the EC2 console and click the `Launch Instance` button
 
 ```text
-- Name: AWS Capstone NAT Instance
+- Name: aws-capstone-nat-instance
 - AMI: write "amzn-ami-vpc-nat-hvm" into the filter box
 select NAT Instance `amzn-ami-vpc-nat-hvm-2018.03.0.20210915.x86_64-ebs` 
     - Instance Type: t2.micro
@@ -203,7 +203,7 @@ Test your NAT instance:
         - type: `ssh-add <your pem file name>`
         - type: `ssh -A ec2-user@<IP of NAT Instance>`
     - When connected to the NAT instance:
-        - type `ssh <private IP of test instance>`
+        - type `ssh ec2-user@<private IP of test instance>`
     - When connected to the private instance:
         - type `curl www.google.com`
 - Terminate your test instance (NOT your NAT instance!!)        
@@ -234,7 +234,7 @@ Test your NAT instance:
 - In your local machine go to Desktop
 - Copy the git clone URL from github.com
 - At a terminal type `git clone <Clone URL>`
-- If you have authentication issues, you can enter your user name and use the token created above for your password
+- If you have authentication issues, you can enter your user name and use the token created above for your password OR try git clone https://<TOKEN>@<YOUR PRIVATE REPO URL>
 
 - Copy the files from the clarusway repo (`src` folder) to the capstone folder on your desktop
 - Copy the file `requirements.txt` to the capstone folder
@@ -274,6 +274,8 @@ Go to the certification manager console and click `request a certificate` button
 ===> Make sure you click `Create DNS Records`
 
 
+
+
 ## Step 9: Prepare a userdata to be utilized in Launch Template
 userdata has already given by developer to us. In production environment. you should write it based on application and developer instructions. Lets go over it again.
 
@@ -289,12 +291,14 @@ First we will need a role for our ec2 instance:
 
 - Please check if this userdata is working or not. to do this create new instance in public subnet
 
+
 Run one command at a time and look for any errors
 
 Instance properties:
+- Name: aws-capstone-test-instance
 - Ubuntu 22.04
 - Key Pair: your key
-- VPC: aws-capstone-public-1a
+- Subnet: aws-capstone-public-1a
 - Security Group
     - aws-capstone-ec2-sg
     - aws-capstone-alb-sg
@@ -321,10 +325,17 @@ python3 manage.py migrate
 python3 manage.py runserver 0.0.0.0:80
 ```
 
+In a browser check:
+    - http://<public_dns_of_test_server>
+
+If everything works, terminate the test server otherwise repeat or fix the steps
+
 
 ## Step 10: Create Launch Template
-To create Launch Template, go to the EC2 console and select `Launch Template` on the left hand menu. Tab the Create Launch Template button.
-```bash
+To create Launch Template, go to the EC2 console and select `Launch Template` on the left hand menu. Click the Create Launch Template button.
+
+
+```text
 Launch template name                : aws-capstone-launch-template
 Template version description        : Blog Web Page version 1
 Amazon machine image (AMI)          : Ubuntu 22.04
@@ -336,27 +347,22 @@ Storage (Volumes)                   : keep it as is
 Resource tags                       : Key: Name   Value: aws-capstone-web-server
 Advance Details:
     - IAM instance profile          : aws-capstone-ec2-s3-full-access
-    - Termination protection        : Enable
     - User Data
-#!/bin/bash
-apt-get update -y
-apt-get install git -y
-apt-get install python3 -y
-cd /home/ubuntu/
-TOKEN="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-git clone https://$TOKEN@<YOUR PRIVATE REPO URL>
-cd /home/ubuntu/<YOUR PRIVATE REPO NAME>
-apt install python3-pip -y
-apt-get install python3.10-dev default-libmysqlclient-dev -y
-pip3 install -r requirements.txt
-cd /home/ubuntu/<YOUR PRIVATE REPO NAME>/src
-python3 manage.py collectstatic --noinput
-#python3 manage.py makemigrations
-#python3 manage.py migrate
-python3 manage.py runserver 0.0.0.0:80
 ```
-NOTE: You don't have to run the migrations statements more than once since it re-configures the database
+```bash
+#!/bin/bash
+# Insert your user data from above which you already verified
+# comment out these two lines:
+#       python3 manage.py makemigrations
+#       python3 manage.py migrate
+# since you don't have to run the migrations statements more than
+# once since it re-configures the database
+```
+
 - create launch template
+
+
+
 ## Step 11: Create ALB and Target Group
 Go to the Load Balancer section on the left hand side menu of EC2 console. Click `create Load Balancer` button and select Application Load Balancer
 ```text
@@ -378,7 +384,7 @@ Security Groups         : aws-capstone-alb-sg
 Listeners and Routing   :
 Listener HTTPS:443
 Protocol HTTP ---> Port 443 ---> Default Action Create Target Group (New Window pops up)
-    - Target Type         : Instance
+    - Target Type         : Instances
     - Name                : aws-capstone-tg
     - Protocol            : HTTP
     - Port                : 80
@@ -408,23 +414,32 @@ Secure Listener Settings        :
     Default ACM    : *.clarusway.us
 
 ```
-- click create
+- click `Create`
 
 After creation of ALB, our ALB have to redirect http traffic to https port. Because our requirement wants to secure traffic. Thats why we should change listener rules. Go to the ALB console and select Listeners sub-section
 
 ```text
-select HTTP: 80 rule ---> click Rule Name
+select HTTP: 80 rule ---> Select Manage Rules | Edit rules
 - Check Default under "Listener Rules"
 - Click `Actions | Edit rule`
 - Choose Redirect to URL
 - Enter 443 for Port number
 - Status code is "301 - permanently moved"
 ```
-Lets go ahead and look at our ALB DNS --> it going to say "it is not safe", however, it will be fixed after connect ALB to our DNS with Route 53
+Test to see that your load balancer is working:
+- Type http://<loadbalancer.dns>
+    - It should re-direct you to https and tell you that the connection is not secure
+- Type https://<loadbalancer.dns>
+    - It should tell you connection is not secure
+
+In any case, if you proceed past the browser warnings, you should see a 5xx error.  Why?
+
+
 
 ## Step 12: Create Autoscaling Group with Launch Template 
 
 Go to the Autoscaling Group on the left hand side menu. Click create Autoscaling group. 
+
 
 - Choose launch template or configuration
 ```text 
@@ -463,15 +478,6 @@ Scaling policies
         - Target value              : 70
 ```
 
-- Add notifications
-```text
-Create new Notification
-    - Notification1
-        - Send a notification to    : aws-capstone-sns
-        - with these recipients     : <your email>
-        - event type                : select all 
-```
-
 <!-- WARNING!!! Sometimes your EC2 has a problem after you create autoscaling group, If you need to look inside one of your instance to make sure where the problem is, please follow these steps...
 
 ```bash
@@ -481,17 +487,20 @@ ssh -A ec2-user@<Public IP or DNS name of NAT instance> (your local)
 ssh ubuntu@<Private IP of web server>  (in NAT instance)
 You are in the private EC2 instance
 ``` -->
+```
+
+
 
 ## Step 13: Create Cloudfront in front of ALB
 Go to the cloudfront menu and click start
+
 - Origin Settings
 ```text
 Origin Domain Name          : aws-capstone-ALB-1947210493.us-east-2.elb.amazonaws.com
-Origin Path                 : Leave empty (this means, define for root '/')
-Protocol                    : Match Viewer
-HTTP Port                   : 80
+Protocol                    : Match ViewerOrigin HTTP Port                   : 80
 HTTPS                       : 443
 Minimum Origin SSL Protocol : Keep it as is
+Path                 : Leave empty (this means, define for root '/')
 Name                        : Keep it as is
 Add custom header           : No header
 Enable Origin Shield        : No
@@ -510,32 +519,39 @@ Cache key and origin requests
     Add Header
     - Accept
     - Accept-Charset
+    - Accept-Language    
     - Accept-Datetime
     - Accept-Encoding
-    - Accept-Language
     - Authorization
-    - Cloudfront-Forwarded-Proto
     - Host
     - Origin
     - Referrer
+    - Cloudfront-Forwarded-Proto    
 Forward Cookies                         : All
 Query String Forwarding and Caching     : All
 Other stuff                             : Keep them as are 
 ```
+- Function Associations                 : Leave as is
+- WAF                                   : Do not enable
+
 - Distribution Settings
 ```text
-Price Class                             : Use all edge locations (best performance)
-Alternate Domain Names                  : www.clarusway.us
-SSL Certificate                         : Custom SSL Certificate (example.com) ---> Select your certificate creared before
-Other stuff                             : Keep them as are                  
+Price Class                             : Use NA &Europe
+Alternate Domain Names                  : www.<your naked domain>
+SSL Certificate                         : Custom SSL Certificate (example.com) ---> Select your certificate created before
+Other stuff                             : Keep them as is
 ```
+Click `Create distribution`
+
+==> Now test:
+    - Check your LB DNS URL (with http and https)
 
 ## Step 14: Create Route 53 with Failover settings
 Come to the Route53 console and select Health checks on the left hand menu. Click create health check
-Configure health check
 
+Configure health check
 ```text
-Name                : aws capstone health check
+Name                : aws-capstone-health-check
 What to monitor     : Endpoint
 Specify endpoint by : Domain Name
 Protocol            : HTTP
@@ -566,7 +582,7 @@ Failover record to add to your DNS ---> Define failover record
 Value/Route traffic to  : Alias to cloudfront distribution
                           - Select created cloudfront DNS
 Failover record type    : Primary
-Health check            : aws capstone health check
+Health check            : aws-capstone-health-check
 Record ID               : Cloudfront as Primary Record
 ----------------------------------------------------------------
 
@@ -584,12 +600,19 @@ Record ID               : S3 Bucket for Secondary record type
 
 - click create records
 
+==> Now test:
+    - Your CloudFront URL (with http and https)
+    - www.<your_domain> (with http and https)
+
+
+
+
 ## Step 15: Create DynamoDB Table
 Go to the Dynamo Db table and click create table button
 
 - Create DynamoDB table
 ```text
-Name            : awscapstoneDynamo
+Name            : aws-capstone-dynamo
 Primary key     : id
 Other Stuff     : Keep them as are
 click create
@@ -600,12 +623,12 @@ click create
 Before we create our Lambda function, we should create IAM role that we'll use for Lambda function. Go to the IAM console and select role on the left hand menu, then create role button
 ```text
 Select Lambda as trusted entity ---> click Next:Permission
-Choose: - LambdaS3fullaccess, 
-        - Network Administrator
-        - DynamoDBFullAccess
+Choose: - AmazonS3fullaccess
+        - AmazonDynamoDBFullAccess
+        - AWSLambdaBasicExecutionRole
 No tags
-Role Name           : aws-capstone_lambda_Role
-Role description    : This role give a permission to lambda to reach S3 and DynamoDB on custom VPC
+Role Name           : aws-capstone-lambda-role
+Role description    : This role give a permission to lambda to reach S3 and DynamoDB
 ```
 
 then, go to the Lambda Console and click create function
@@ -613,40 +636,31 @@ then, go to the Lambda Console and click create function
 - Basic Information
 ```text
 
-Function Name           : awscapstonelambdafunction
-Runtime                 : Python 3.8
-Create IAM role         : S3 full access policy
-
-Advance Setting:
-Network                 : 
-    - VPC               : aws-capstone-VPC
-    - Subnets           : Select all subnets
-    - Security Group    : Select default security Group
+Function Name           : aws-capstone-lambda-function
+Runtime                 : Python 3.10
+Permissions
+Use an existing role    : aws-capstone-lambda-role
 ```
+
+- Click `Create function`
+
+- Select `Configuration` tab
+- Under `General configuraiton` click `Edit`
+- Modify Lambda Function timeout to be 30 seconds
 
 - Now we'll go to the S3 bucket belongs our website and create an event to trigger our Lambda function. 
 
 ## Step 18-19: Create trigger for Lambda Function
 
-- Go to the `awscapstonelambdafunction` lambda Function and click add trigger on the top left hand side.
+- Go to the `aws-capstone-lambda-function` lambda Function
+- Click `Add trigger`
+- Select `S3` as Source
+- Select `awscapstones<name>blog` bucket
+- Choose `All object create events`
+- Click the `I acknowledge` check box
+- Click `Add` to add the trigger
 
-- For defining trigger for creating objects
-```text
-Trigger configuration   : S3
-Bucket                  : awscapstonec3<name>blog
-Event type              : All object create events
-Check the warning message and click add ---> sometimes it says overlapping situation. When it occurs, try refresh page and create a new trigger or remove the s3 event and recreate again. then again create a trigger for lambda function
 ```
-
-- For defining trigger for deleting objects
-```bash
-
-Trigger configuration   : S3
-Bucket                  : awscapstonec3<name>blog
-Event type              : All object delete events
-Check the warning message and click add ---> sometimes it says overlapping situation. When it occurs, try refresh page and create a new trigger or remove the s3 event and recreate again. then again create a trigger for lambda function
-```
-
 - Go to the code part and select lambda_function.py ---> remove default code and paste a code on below. If you give DynamoDB a different name, please make sure to change it into the code. 
 
 ```python
@@ -666,7 +680,7 @@ def lambda_handler(event, context):
         filename2 = filename1[-1]
         
         dynamo_db = boto3.resource('dynamodb')
-        dynamoTable = dynamo_db.Table('awscapstoneDynamo')
+        dynamoTable = dynamo_db.Table('aws-capstone-dynamo')
         
         dynamoTable.put_item(Item = {
             'id': filename2,
